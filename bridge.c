@@ -46,9 +46,27 @@ int set_interface_attribs(int fd, int speed)
     return 0;
 }
 
+int get_gpio_state(int gpio) {
+    int fd = open("/dev/gpio", O_RDWR);
+    int result = ioctl(fd, 0x3C02, gpio);
+    close(fd);
+    return result;
+}
+
+void set_gpio_on(int gpio) {
+    int fd = open("/dev/gpio", O_RDWR);
+    ioctl(fd, 0x3C03, gpio);
+    close(fd);
+}
+
+void set_gpio_off(int gpio) {
+    int fd = open("/dev/gpio", O_RDWR);
+    ioctl(fd, 0x3C04, gpio);
+    close(fd);
+}
+
 void set_backlight(int brightness) {
-    int fd;
-    fd = open("/dev/backlight", O_RDWR);
+    int fd = open("/dev/backlight", O_RDWR);
     ioctl(fd, 0x4001, &brightness);
     close(fd);
 }
@@ -96,7 +114,7 @@ void process_message() {
             checksum = 256 - checksum;
             printf("%02X 00x", checksum & 0xFF);
 
-        } else if ((message[1] & 0xFF) == 0x03 && (message[2] & 0xFF) == 0x80) {
+        } else if ((message[1] & 0xFF) == 0x04 && (message[2] & 0xFF) == 0x80) {
             // Intercept LED sets to backlight
             int brightness = ((message[4] & 0xFF) << 8);
             set_backlight(brightness);
@@ -155,10 +173,16 @@ void process_byte(char bus_byte)
 
 int main()
 {
+    printf("MPF Spike Bridge!\n");
+
     // Disable backlight
     set_backlight(0);
 
-    printf("MPF Spike Bridge!\n");
+    // Enable Nodebus power
+    set_gpio_on(0x6B);
+
+    // Enable Amp
+    //set_gpio_on(0x6A);
 
     // Open Spike bus
     char *portname = "/dev/ttyS4";
