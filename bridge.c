@@ -1,4 +1,4 @@
-// Compile: /usr/local/musl/bin/musl-gcc --static bridge.c -o bridge
+// Compile: /usr/local/musl/bin/musl-gcc --static bridge.c -Wall -o bridge
 #include <errno.h>
 #include <fcntl.h> 
 #include <string.h>
