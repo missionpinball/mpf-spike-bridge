@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h> 
@@ -97,6 +98,12 @@ void process_message() {
             }
 
         }
+    } else if (message[0] == 0x01) {
+        // Sleep after certain messages to keep bus in sync. MPF specific
+        struct timespec ts;
+        ts.tv_sec = 0;
+        ts.tv_nsec = message[1] * 1000000;
+        nanosleep(&ts, NULL);
     } else if ((message[0] & 0xF0) == 0x80) {
         //printf("Bus message received\n");
         if ((message[0] & 0x0F) == 0x00 && (message[2] & 0xFF) == 0x11) {
@@ -146,6 +153,10 @@ void process_byte(char bus_byte)
             message[0] = bus_byte;
             process_message();
             message_position = -1;
+        } else if (bus_byte == 0x01) {
+            // Custom wait command to get bus sync
+            message[0] = bus_byte;
+            message_position = 1;
         } else if ((bus_byte & 0xF0) == 0x80) {
             // Node bus message
             message_position = 1;
@@ -154,6 +165,10 @@ void process_byte(char bus_byte)
             // Invalid. We probably lost sync.
             message_position = -1;
         }
+    } else if (message_position == 1 && message[0] == 0x01) {
+        message[1] = bus_byte;
+        process_message();
+        message_position = -1;
     } else if (message_position == 1) {
         // Second byte - length
         message[1] = bus_byte;
