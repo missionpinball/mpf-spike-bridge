@@ -121,7 +121,7 @@ void process_message() {
             checksum = 256 - checksum;
             printf("%02X 00x", checksum & 0xFF);
 
-        } else if ((message[1] & 0xFF) == 0x04 && (message[2] & 0xFF) == 0x80) {
+        } else if ((message[0] & 0x0F) == 0x00 && (message[1] & 0xFF) == 0x04 && (message[2] & 0xFF) == 0x80) {
             // Intercept LED sets to backlight
             int brightness = ((message[4] & 0xFF) << 8);
             set_backlight(brightness);
