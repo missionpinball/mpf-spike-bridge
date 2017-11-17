@@ -73,7 +73,7 @@ void set_backlight(int brightness) {
 }
 
 int message_position = 0;
-char message[259];  // 256 + 2 (node, length, response_len)
+char message[2052];  // 2048 + 3 (node, length, response_len)
 int fd;
 int spi_fd;
 int local_activity = 0;
@@ -119,14 +119,28 @@ void process_message() {
                 checksum += local_switches[j];
             }
             checksum = 256 - checksum;
-            printf("%02X 00x", checksum & 0xFF);
+            printf("%02X 00 ", checksum & 0xFF);
 
         } else if ((message[0] & 0x0F) == 0x00 && (message[1] & 0xFF) == 0x04 && (message[2] & 0xFF) == 0x80) {
             // Intercept LED sets to backlight
             int brightness = ((message[4] & 0xFF) << 8);
             set_backlight(brightness);
+        } else if ((message[0] & 0xFF) == 0x80 && (message[1] & 0xFF) == 0x00 && (message[2] & 0xFF) == 0x90) {
+            // Send DMD frames
+            //printf("Sending DMD frame\n");
+            // Open dmd port
+            char *dmd_portname = "/dev/spi0";
+            int dmd_fd = open (dmd_portname, O_RDWR | O_NOCTTY | O_SYNC);
+            if (dmd_fd < 0)
+            {
+                printf("Error opening %s: %s\n", dmd_portname, strerror(errno));
+                return;
+            }
+            write(dmd_fd, &message[3], 2048);
+            close(dmd_fd);
         } else {
             // Send message to nodebus
+            //printf("Sending to Bus\n");
             write(fd, &message, message[1] + 3);
         }
     } else {
@@ -141,7 +155,8 @@ void process_message() {
 
 void process_byte(char bus_byte)
 {
-    if (message_position < 0 || message_position >= 256) {
+    //printf("Processing %02X %i\n", bus_byte, message_position);
+    if (message_position < 0 || message_position >= 2051) {
         message_position = 0;
         memset(message, 0, sizeof message);
     }
@@ -178,7 +193,13 @@ void process_byte(char bus_byte)
         message_position += 1;
 
         // Data + readback
-        if (message_position - 3 == message[1]) {
+        if (message[0] == 0x80 && message[1] == 0x00) {
+            if (message_position - 3 >= 2048) {
+                // Message complete
+                process_message();
+                message_position = -1;
+            }
+        } else if (message_position - 3 == message[1]) {
             // Message complete
             process_message();
             message_position = -1;
