@@ -1,6 +1,6 @@
 // Compile: /usr/local/musl/bin/musl-gcc --static bridge.c -Wall -o bridge
 #include <errno.h>
-#include <fcntl.h> 
+#include <fcntl.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
@@ -10,7 +10,7 @@
 #include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/ioctl.h> 
+#include <sys/ioctl.h>
 
 int set_interface_attribs(int fd, int speed)
 {
@@ -85,7 +85,7 @@ void process_message() {
         // Intercept poll if we have local activity
         if (local_activity) {
             // Tell MPF that there is local activity
-           printf("F0 "); 
+           printf("F0 ");
         } else {
             // Or forward to bus
             write(fd, &message, 1);
@@ -232,8 +232,10 @@ int main()
 
     // Set RTS and DTS on Node bus
     int flags;
-    flags = TIOCM_RTS | TIOCM_DTR; 
+    flags = TIOCM_RTS | TIOCM_DTR;
     ioctl(fd, TIOCMBIS, &flags);
+    // Set speed of nodebus
+    set_interface_attribs (fd, B460800);
 
     // Open local ports on cpu
     char *spi_portname = "/dev/spi1";
@@ -246,7 +248,6 @@ int main()
 
     // Open stdin
     int stdin_fd = 0;
-    set_interface_attribs (fd, B460800);  // set speed
 
     setbuf(stdout, NULL);
     setbuf(stdin, NULL);
@@ -255,7 +256,13 @@ int main()
     if (tcgetattr (fileno (stdin), &old) != 0)
         return -1;
     new = old;
-    new.c_lflag &= ~ECHO;
+    // raw mode according to terminos(3) man page
+    new.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
+    new.c_oflag &= ~OPOST;
+    new.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+    new.c_cflag &= ~(CSIZE | PARENB);
+    new.c_cflag |= CS8;
+
     if (tcsetattr (fileno (stdin), TCSAFLUSH, &new) != 0)
     {
         printf("Error setting stdin attributes");
@@ -263,45 +270,38 @@ int main()
     }
 
     // Loop variables
-    char buffer[128];
-    char last = 0;
+    char buffer[1024];
+    int select_return;
 
     while (1) {
+        struct timeval tv = {2, 0};
         fd_set set;
         /* Initialize the file descriptor set. */
         FD_ZERO (&set);
         FD_SET (stdin_fd, &set);
         FD_SET (fd, &set);
 
-        select(spi_fd + 1, &set, NULL, NULL, NULL);
+        select_return = select(spi_fd + 1, &set, NULL, NULL, &tv);
         int n;
-        if (FD_ISSET(stdin_fd, &set)) {
-            if (last != 0) {
-                buffer[0] = last;
-                n = read(stdin_fd, buffer + 1, sizeof buffer - 1);
-                n += 1;
-            } else {
-                n = read(stdin_fd, buffer, sizeof buffer);
+        // In case we ran into a timeout do exit.
+        if (select_return == 0) {
+            // Reset terminal mode
+            if (tcsetattr (fileno (stdin), TCSAFLUSH, &old) != 0)
+            {
+                printf("Error setting stdin attributes");
+                return -1;
             }
+            printf("Resetting terminal mode and quitting.");
+            exit(0);
+        }
+        if (FD_ISSET(stdin_fd, &set)) {
+            n = read(stdin_fd, buffer, sizeof buffer);
 //            printf("Got %02X bytes from stdin\n", n);
             int j = 0;
-            int offset = 0;
-            if (buffer[0] == ' ' || buffer[0] == '\n') {
-                offset = 1;
-            }
-            for (j = offset; j < n - 1; j += 3)
+            for (j = 0; j < n; j += 1)
             {
-                unsigned int u;
-                sscanf(buffer + j, "%2x", &u);
-                char b = (char)u;
-                process_byte(b);
-//                write(fd, &b, 1);
+                process_byte(buffer[j]);
 //                printf("Sending: %02X\n", b);
-            }
-            if ((n - offset) % 3 == 1) {
-                last = buffer[n - 1];
-            } else {
-                last = 0;
             }
         } else if (FD_ISSET(fd, &set)) {
             n = read(fd, buffer, sizeof buffer);
