@@ -262,6 +262,8 @@ int main()
     new.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
     new.c_cflag &= ~(CSIZE | PARENB);
     new.c_cflag |= CS8;
+    cfsetospeed(&new, (speed_t)B921600);
+    cfsetispeed(&new, (speed_t)B921600);
 
     if (tcsetattr (fileno (stdin), TCSAFLUSH, &new) != 0)
     {
