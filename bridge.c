@@ -207,6 +207,24 @@ void process_byte(char bus_byte)
     }
 }
 
+int stop_bridge(const struct termios old)
+{
+    // Disable backlight
+    set_backlight(0);
+
+    // Disable Nodebus power
+    set_gpio_off(0x6B);
+
+    // Reset terminal mode
+    if (tcsetattr (fileno (stdin), TCSAFLUSH, &old) != 0)
+    {
+        printf("Error setting stdin attributes");
+        exit(-1);
+    }
+    printf("Resetting terminal mode and quitting.");
+    exit(0);
+}
+
 int main()
 {
     printf("MPF Spike Bridge!\n");
@@ -274,6 +292,7 @@ int main()
     // Loop variables
     char buffer[1024];
     int select_return;
+    unsigned int last_byte_received = time(NULL);
 
     while (1) {
         struct timeval tv = {2, 0};
@@ -287,16 +306,10 @@ int main()
         int n;
         // In case we ran into a timeout do exit.
         if (select_return == 0) {
-            // Reset terminal mode
-            if (tcsetattr (fileno (stdin), TCSAFLUSH, &old) != 0)
-            {
-                printf("Error setting stdin attributes");
-                return -1;
-            }
-            printf("Resetting terminal mode and quitting.");
-            exit(0);
+            stop_bridge(old);
         }
         if (FD_ISSET(stdin_fd, &set)) {
+            last_byte_received = time(NULL);
             n = read(stdin_fd, buffer, sizeof buffer);
 //            printf("Got %02X bytes from stdin\n", n);
             int j = 0;
@@ -315,6 +328,9 @@ int main()
             }
         } else {
             printf("Select failure\n");
+        }
+        if (last_byte_received + 5 < time(NULL)) {
+            stop_bridge(old);
         }
     }
     return 0;
