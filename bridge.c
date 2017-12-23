@@ -272,7 +272,13 @@ int main(int argc, char* argv[])
 
     speed_t serial_speed = (speed_t)B921600;
     if (argc == 2) {
-        if (strcmp(argv[1], "921600") == 0) {
+        if (strcmp(argv[1], "230400") == 0) {
+            serial_speed = (speed_t)B230400;
+        } else if (strcmp(argv[1], "460800") == 0) {
+            serial_speed = (speed_t)B460800;
+        } else if (strcmp(argv[1], "576000") == 0) {
+            serial_speed = (speed_t)B576000;
+        } else if (strcmp(argv[1], "921600") == 0) {
             serial_speed = (speed_t)B921600;
         } else if (strcmp(argv[1], "1000000") == 0) {
             serial_speed = (speed_t)B1000000;
