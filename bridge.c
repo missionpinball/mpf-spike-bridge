@@ -225,7 +225,7 @@ int stop_bridge(const struct termios old)
     exit(0);
 }
 
-int main()
+int main(int argc, char* argv[])
 {
     printf("MPF Spike Bridge!\n");
 
@@ -270,6 +270,31 @@ int main()
     setbuf(stdout, NULL);
     setbuf(stdin, NULL);
 
+    speed_t serial_speed = (speed_t)B921600;
+    if (argc == 2) {
+        if (strcmp(argv[1], "921600") == 0) {
+            serial_speed = (speed_t)B921600;
+        } else if (strcmp(argv[1], "1000000") == 0) {
+            serial_speed = (speed_t)B1000000;
+        } else if (strcmp(argv[1], "1152000") == 0) {
+            serial_speed = (speed_t)B1152000;
+        } else if (strcmp(argv[1], "1500000") == 0) {
+            serial_speed = (speed_t)B1500000;
+        } else if (strcmp(argv[1], "2000000") == 0) {
+            serial_speed = (speed_t)B2000000;
+        } else if (strcmp(argv[1], "2500000") == 0) {
+            serial_speed = (speed_t)B2500000;
+        } else if (strcmp(argv[1], "3000000") == 0) {
+            serial_speed = (speed_t)B3000000;
+        } else if (strcmp(argv[1], "3500000") == 0) {
+            serial_speed = (speed_t)B3500000;
+        } else if (strcmp(argv[1], "4000000") == 0) {
+            serial_speed = (speed_t)B4000000;
+        } else {
+            serial_speed = 0;
+        }
+    }
+
     struct termios old, new;
     if (tcgetattr (fileno (stdin), &old) != 0)
         return -1;
@@ -280,8 +305,10 @@ int main()
     new.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
     new.c_cflag &= ~(CSIZE | PARENB);
     new.c_cflag |= CS8;
-    cfsetospeed(&new, (speed_t)B921600);
-    cfsetispeed(&new, (speed_t)B921600);
+    if (serial_speed) {
+        cfsetospeed(&new, serial_speed);
+        cfsetispeed(&new, serial_speed);
+    }
 
     if (tcsetattr (fileno (stdin), TCSAFLUSH, &new) != 0)
     {
