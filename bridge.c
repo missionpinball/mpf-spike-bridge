@@ -252,6 +252,11 @@ int main(int argc, char* argv[])
 {
     printf("MPF Spike Bridge!\n");
 
+    // Evaluate spike version from cmd line
+    if (argc >= 3 && strcmp(argv[2], "SPIKE2") == 0) {
+       spike_version = 2;
+    }
+
     // Disable backlight
     set_backlight(0);
 
@@ -330,10 +335,6 @@ int main(int argc, char* argv[])
             serial_speed = 0;
         }
     }
-    if (argc >= 3 && strcmp(argv[2], "SPIKE2") == 0) {
-       spike_version = 2;
-    }
-
     struct termios old, new;
     if (tcgetattr (fileno (stdin), &old) != 0)
         return -1;
