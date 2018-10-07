@@ -6,3 +6,18 @@ allows a remote system (such as MPF) to control the pinball machine.
 
 Details & Instructions:
 http://docs.missionpinball.org/en/latest/hardware/spike
+
+## Compiling the bridge (if you made changes)
+
+You need gcc for arm and musl libc to compile the bridge:
+
+    git clone git://git.musl-libc.org/musl
+    cd musl
+    sudo apt-get install gcc-arm-linux-gnueabi
+    CC=/usr/bin/arm-linux-gnueabi-gcc ./configure
+    make
+    sudo make install
+
+Afterwards, you can simply compile the bridge:
+
+    /usr/local/musl/bin/musl-gcc --static bridge.c -Wall -o bridge
