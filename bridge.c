@@ -12,6 +12,8 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 
+int spike_version = 1;  // Default to Spike 1
+
 int set_interface_attribs(int fd, int speed)
 {
     struct termios tty;
@@ -48,6 +50,10 @@ int set_interface_attribs(int fd, int speed)
 }
 
 int get_gpio_state(int gpio) {
+    if (spike_version == 2) {
+        // Not supported yet
+        return 0;
+    }
     int fd = open("/dev/gpio", O_RDWR);
     int result = ioctl(fd, 0x3C02, gpio);
     close(fd);
@@ -55,18 +61,30 @@ int get_gpio_state(int gpio) {
 }
 
 void set_gpio_on(int gpio) {
+    if (spike_version == 2) {
+        // Not supported yet
+        return;
+    }
     int fd = open("/dev/gpio", O_RDWR);
     ioctl(fd, 0x3C03, gpio);
     close(fd);
 }
 
 void set_gpio_off(int gpio) {
+    if (spike_version == 2) {
+        // Not supported yet
+        return;
+    }
     int fd = open("/dev/gpio", O_RDWR);
     ioctl(fd, 0x3C04, gpio);
     close(fd);
 }
 
 void set_backlight(int brightness) {
+    if (spike_version == 2) {
+        // Not supported yet
+        return;
+    }
     int fd = open("/dev/backlight", O_RDWR);
     ioctl(fd, 0x4001, &brightness);
     close(fd);
@@ -92,9 +110,11 @@ void process_message() {
 
             // Also check local inputs
             char tmp_inputs[8];
+            if (spike_version == 1) {
             read(spi_fd, tmp_inputs, sizeof tmp_inputs);
             if (memcmp(tmp_inputs, local_switches, 8)) {
                 local_activity = 1;
+            }
             }
 
         }
@@ -111,7 +131,10 @@ void process_message() {
             local_activity = 0;
             //printf("Read local switches\n");
             int j;
+
+            if (spike_version == 1) {
             read(spi_fd, local_switches, sizeof local_switches);
+            }
             char checksum = 0;
             for (j = 0; j < 8; j++)
             {
@@ -229,6 +252,11 @@ int main(int argc, char* argv[])
 {
     printf("MPF Spike Bridge!\n");
 
+    // Evaluate spike version from cmd line
+    if (argc >= 3 && strcmp(argv[2], "SPIKE2") == 0) {
+       spike_version = 2;
+    }
+
     // Disable backlight
     set_backlight(0);
 
@@ -240,6 +268,9 @@ int main(int argc, char* argv[])
 
     // Open Spike bus
     char *portname = "/dev/ttyS4";
+    if (spike_version == 2) {
+        portname = "/dev/ttymxc1";
+    }
 
     fd = open (portname, O_RDWR | O_NOCTTY | O_SYNC);
     if (fd < 0)
@@ -257,11 +288,15 @@ int main(int argc, char* argv[])
 
     // Open local ports on cpu
     char *spi_portname = "/dev/spi1";
+    if (spike_version == 2) {
+        spi_fd = fd;    // HACK: needed for select
+    } else {
     spi_fd = open (spi_portname, O_RDWR | O_NOCTTY | O_SYNC);
     if (spi_fd < 0)
     {
         printf("Error opening %s: %s\n", spi_portname, strerror(errno));
         return -1;
+    }
     }
 
     // Open stdin
@@ -271,7 +306,7 @@ int main(int argc, char* argv[])
     setbuf(stdin, NULL);
 
     speed_t serial_speed = (speed_t)B921600;
-    if (argc == 2) {
+    if (argc >= 2) {
         if (strcmp(argv[1], "230400") == 0) {
             serial_speed = (speed_t)B230400;
         } else if (strcmp(argv[1], "460800") == 0) {
@@ -300,7 +335,6 @@ int main(int argc, char* argv[])
             serial_speed = 0;
         }
     }
-
     struct termios old, new;
     if (tcgetattr (fileno (stdin), &old) != 0)
         return -1;
