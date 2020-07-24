@@ -1,3 +1,6 @@
+THIS REPO IS DEPRECATED. MPF USES THE NEW MPF-SPIKE (https://github.com/missionpinball/mpf-spike) BRIDGE WRITTEN IN RUST INSTEAD.
+
+
 # mpf-spike-bridge
 Bridge between the Mission Pinball Framework and Stern SPIKE pinball machines.
 
